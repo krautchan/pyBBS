@@ -140,7 +140,8 @@ class TelnetClient(object):
         self.command_list = []
         self.connect_time = time.time()
         self.last_input_time = time.time()
-
+        self.lineMode = True
+        
         ## State variables for interpreting incoming telnet commands
         self.telnet_got_iac = False # Are we inside an IAC sequence?
         self.telnet_got_cmd = None  # Did we get a telnet command?
@@ -222,6 +223,25 @@ class TelnetClient(object):
         """
         self._iac_do(SGA)
         self._note_reply_pending(SGA, True)
+        
+    def request_will_sga(self):
+        """
+        Request DE to Suppress Go-Ahead.  See RFC 858.
+        """
+        self._iac_will(SGA)
+        self._note_reply_pending(SGA, True)
+        
+    def request_will_line_mode(self):
+        self._iac_will(LINEMO)
+        self._note_reply_pending(LINEMO, True)
+
+    def request_dont_line_mode(self):
+        self._iac_dont(LINEMO)
+        self._note_reply_pending(LINEMO, True)
+
+    def request_wont_line_mode(self):
+        self._iac_wont(LINEMO)
+        self._note_reply_pending(LINEMO, True)
 
     def request_will_echo(self):
         """
@@ -311,14 +331,21 @@ class TelnetClient(object):
             self._iac_sniffer(byte)
 
         ## Look for newline characters to get whole lines from the buffer
-        while True:
-            mark = self.recv_buffer.find('\n')
-            if mark == -1:
-                break
-            cmd = self.recv_buffer[:mark].strip()
+        if self.lineMode == True:
+            while True:
+                mark = self.recv_buffer.find('\r')
+                print mark
+                if mark == -1:
+                    break
+                cmd = self.recv_buffer[:mark].strip()
+                self.command_list.append(cmd)
+                self.cmd_ready = True
+                self.recv_buffer = self.recv_buffer[mark+1:]
+        else:
+            cmd = self.recv_buffer.strip()
             self.command_list.append(cmd)
             self.cmd_ready = True
-            self.recv_buffer = self.recv_buffer[mark+1:]
+            self.recv_buffer = self.recv_buffer[len(self.recv_buffer):]
 
     def _recv_byte(self, byte):
         """
@@ -483,9 +510,17 @@ class TelnetClient(object):
                     self._note_local_option(BINARY, True)
                     self._iac_will(BINARY)
                     ## Just nod
+            elif option == LINEMO:
+                if self._check_reply_pending(LINEMO):
+                    self._note_reply_pending(LINEMO, False)
+                    self._note_local_option(LINEMO, True)
 
+                elif (self._check_local_option(LINEMO) is False or
+                        self._check_local_option(LINEMO) is UNKNOWN):
+                    self._note_local_option(LINEMO, True)
+                    self._iac_will(LINEMO)
             elif option == ECHO:
-
+                print 'do echo'
                 if self._check_reply_pending(ECHO):
                     self._note_reply_pending(ECHO, False)
                     self._note_local_option(ECHO, True)
@@ -509,7 +544,6 @@ class TelnetClient(object):
                     ## Just nod
 
             else:
-
                 ## ALL OTHER OTHERS = Default to refusing once
                 if self._check_local_option(option) is UNKNOWN:
                     self._note_local_option(option, False)
@@ -531,9 +565,18 @@ class TelnetClient(object):
                     self._note_local_option(BINARY, False)
                     self._iac_wont(BINARY)
                     ## Just nod
+            elif option == LINEMO:
+                if self._check_reply_pending(LINEMO):
+                    self._note_reply_pending(LINEMO, False)
+                    self._note_local_option(LINEMO, False)
 
+                elif (self._check_local_option(LINEMO) is True or
+                        self._check_local_option(LINEMO) is UNKNOWN):
+                    self._note_local_option(LINEMO, False)
+                    self._iac_wont(LINEMO)
+                    
             elif option == ECHO:
-
+                print 'dont echo'
                 if self._check_reply_pending(ECHO):
                     self._note_reply_pending(ECHO, False)
                     self._note_local_option(ECHO, True)
@@ -570,13 +613,14 @@ class TelnetClient(object):
         elif cmd == WILL:
 
             if option == ECHO:
-
                 ## Nutjob DE offering to echo the server...
                 if self._check_remote_option(ECHO) is UNKNOWN:
                     self._note_remote_option(ECHO, False)
                     # No no, bad DE!
                     self._iac_dont(ECHO)
 
+            elif option == LINEMO:
+                print 'D:'
             elif option == NAWS:
 
                 if self._check_reply_pending(NAWS):
@@ -591,7 +635,7 @@ class TelnetClient(object):
                     ## Client should respond with SB
 
             elif option == SGA:
-
+                print 'will sga'
                 if self._check_reply_pending(SGA):
                     self._note_reply_pending(SGA, False)
                     self._note_remote_option(SGA, True)
@@ -626,9 +670,10 @@ class TelnetClient(object):
                 if self._check_remote_option(ECHO) is UNKNOWN:
                     self._note_remote_option(ECHO, False)
                     self._iac_dont(ECHO)
-
+            elif option == LINEMO:
+                print ':D'
             elif option == SGA:
-
+                print 'wont sga'
                 if self._check_reply_pending(SGA):
                     self._note_reply_pending(SGA, False)
                     self._note_remote_option(SGA, False)

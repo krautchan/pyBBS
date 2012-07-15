@@ -3,24 +3,15 @@ Created on Jul 15, 2012
 
 @author: teddydestodes
 '''
+import bbs
 
-class View(object):
+class View(bbs.Drawable):
 
     buffer = ''
     size = (80,24)
     
     def __init__(self, client):
-        self.client = client
-    
-    def paint(self):
-        self.buffer = ''
-        self.clearScreen()
-        self.drawBorder()
-        self.repaint()
-        self.client.send(self.buffer)
-    
-    def clearScreen(self):
-        self.buffer = self.buffer + '\x1b[37;44m\x1b[37,44mblah\x1b[2J\r\n'
+        bbs.Drawable.__init__(self, client, None)
     
     def drawBorder(self):
         cmd =       '\x1b[H'
@@ -33,17 +24,10 @@ class View(object):
         cmd = cmd + '\x1b(A'
         
         self.buffer = self.buffer + cmd
-    
-    def setSize(self, columns, rows):
-        if self.size != (columns, rows):
-            self.size = (columns, rows)
-            self.paint()
 
     def repaint(self):
-        pass
-    
-    def handleCommand(self, command):
-        return False
+        self.clearScreen()
+        self.drawBorder()
 
 class Title(View):
     
@@ -59,11 +43,12 @@ class Title(View):
     def setConnectionCount(self, count):
         self.connectioncount = count
     
-    def handleCommand(self, command):
+    def _handleInput(self, command):
         self.client.view = EmptyPage(self.client)
         self.client.view.paint()
     
     def repaint(self):
+        View.repaint(self)
         self.drawHeader()
     
     def drawHeader(self):
@@ -106,10 +91,18 @@ class EmptyPage(View):
         View.__init__(self, client)
         
     def repaint(self):
+        View.repaint(self)
         self.drawMessage()
+        self.client.lineMode = False
         
     def drawMessage(self):
         msg = 'Hier ist nichts :( "quit" um Verbindung zu beenden'
         pad = pad = (self.size[0]-len(msg))/2;
         cmd = '\x1b[%d;%df' % (self.size[1]/2, pad) + msg 
         self.buffer = self.buffer + cmd
+        
+    def _handleInput(self, command):
+        print "'"+command+"'"
+        if command == '\x1b[11~': #F11
+            help = bbs.window.Help(self.client, self)
+            self.addChild(help)
