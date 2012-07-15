@@ -13,6 +13,7 @@ class Borg(object):
         inst.__dict__ = cls._shared
         return inst
 
+
 class Drawable(object):
     
     UNKNOWN = 0
@@ -29,23 +30,33 @@ class Drawable(object):
         self.buffer = ''
         self.title = 'drawable'
         
-        self.help = {'F11': 'Hilfe', 'ESC': 'schliesst Fenster','STRG+Q': 'beenden'}
+        self.help = {'F1': 'Hilfe', 'ESC': 'schliesst Fenster','STRG+Q': 'beenden'}
         
         if parent == None:
             self.hasFocus = True
             self.size = (client.columns, client.rows)
     
+    def cycleFocus(self, child):
+        index = self.children.index(child)
+        self.children[index].hasFocus = False
+        self.children[index].paint()
+        index += 1
+        if index >= len(self.children):
+            index = 0
+        self.children[index].hasFocus = True
+        self.children[index].paint()
+    
     def addChild(self, child, focus = True):
+        self.children.append(child)
         if focus:
             for child in self.children:
                 if child.hasFocus:
                     child.hasFocus = False
-                    child.paint() # HNG can't be right
+                    #child.paint() # HNG can't be right
             if self.hasFocus:
                 self.hasFocus = False
             child.hasFocus = True
-            child.paint()
-        self.children.append(child)
+        self.paint()
     
     def removeChild(self, child):
         self.children.remove(child)
@@ -87,14 +98,17 @@ class Drawable(object):
         """
         pass
     
+    def update(self):
+        pass
     def handleInput(self, input):
         if self.hasFocus:
-            self._handleInput(input)
+            return self._handleInput(input)
         else: #just cycle though the children hopefully someone handles it
             for child in self.children:
-                child.handleInput(input)
+                if child.handleInput(input):
+                    return True
 
     def _handleInput(self,input):
         if input == '\x1b':
             self.close()
-        pass
+            return True

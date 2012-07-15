@@ -46,7 +46,7 @@ def updateClient(client):
     if client.shouldQuit:
         client.deactivate()
         return
-    if client.startup:
+    if client.startup and False:
         wait = False
         for opt in client.telnet_opt_dict:
             if client.telnet_opt_dict[opt].reply_pending:
@@ -55,14 +55,20 @@ def updateClient(client):
         if wait:
             return
     client.view.setSize(client.columns, client.rows)
-    
+    client.view.update()
+
     if client.cmd_ready :
+        
         cmd = client.get_command()
-        client.view.handleInput(cmd)
+        
         if cmd == '\x11': # CTRL+Q
             clearScreen(client)
             reset(client)
             client.shouldQuit = True
+        elif cmd == '\x1bOP' or cmd == '\x1b[11~': #F1
+            client.view.showHelp()
+        else:
+            client.view.handleInput(cmd)
 
 def my_on_disconnect(client):
     CLIENTS.remove(client)

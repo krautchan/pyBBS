@@ -8,9 +8,6 @@ import bbs
 class Window(bbs.Drawable):
     
     def __init__(self, client, parent = None, centered = True):
-        '''
-        Constructor
-        '''
         bbs.Drawable.__init__(self, client, parent)
         self.centered = centered
     
@@ -31,13 +28,17 @@ class Window(bbs.Drawable):
         cmd = cmd + '\x1b[%d;%dH%s' % (vpad, tpad, self.title)
         self.buffer = self.buffer + cmd
 
-class Help(bbs.Borg,Window):
+class Help(Window):
 
     def __init__(self, client, parent = None):
-        Window.__init__(self, client, parent, True)
+        Window.__init__(self, client, parent)
         self.size = (30,24)
         self.title = 'Hilfe'
-        
+    
+    def close(self):
+        self.parent.helpVisible = False
+        Window.close(self)
+
     def repaint(self):
         Window.repaint(self)
         length = 0

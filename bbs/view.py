@@ -4,6 +4,8 @@ Created on Jul 15, 2012
 @author: teddydestodes
 '''
 import bbs
+import bbs.widgets
+
 
 class View(bbs.Drawable):
 
@@ -12,6 +14,7 @@ class View(bbs.Drawable):
     
     def __init__(self, client):
         bbs.Drawable.__init__(self, client, None)
+        self.helpVisible = False
     
     def drawBorder(self):
         cmd =       '\x1b[H'
@@ -28,7 +31,12 @@ class View(bbs.Drawable):
     def repaint(self):
         self.clearScreen()
         self.drawBorder()
-
+    
+    def showHelp(self):
+        if not self.helpVisible:
+            self.helpVisible = True
+            self.addChild(bbs.window.Help(self.client, self))
+        
 class Title(View):
     
     
@@ -83,12 +91,33 @@ class Title(View):
         cmd = cmd + '\x1b[%d;%df' % (21, pad) + msg
         
         self.buffer = self.buffer + cmd
-        
-        
+
+chatdb = []
+
+class InputTest(View):
+    def __init__(self, client):
+        View.__init__(self, client)
+    
+    def repaint(self):
+        View.repaint(self)
+    
+    def update(self):
+        pass
+    
+    def _handleInput(self, Input):
+        pass
+
 class EmptyPage(View):
     
     def __init__(self, client):
         View.__init__(self, client)
+        p = bbs.widgets.TextField(self.client, self)
+        p.position = (20,20)
+        p.hasFocus = True
+        self.addChild(p)
+        c = bbs.widgets.TextField(self.client, self)
+        c.position = (30,20)
+        self.addChild(c)
         
     def repaint(self):
         View.repaint(self)
@@ -102,7 +131,6 @@ class EmptyPage(View):
         self.buffer = self.buffer + cmd
         
     def _handleInput(self, command):
-        print "'"+command+"'"
-        if command == '\x1b[11~': #F11
-            help = bbs.window.Help(self.client, self)
-            self.addChild(help)
+        if command == '\x1b[24~': #F12
+            self.client.view = InputTest(self.client)
+            self.client.view.paint()
