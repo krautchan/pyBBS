@@ -6,7 +6,6 @@ Created on Jul 15, 2012
 from bbs import view, window
 import atexit
 from miniboa import TelnetServer
-
 CLIENTS = []
 conncount = 0
 def on_exit():
@@ -46,26 +45,21 @@ def updateClient(client):
     if client.shouldQuit:
         client.deactivate()
         return
-    if client.startup and False:
-        wait = False
-        for opt in client.telnet_opt_dict:
-            if client.telnet_opt_dict[opt].reply_pending:
-                wait = True
-                break
-        if wait:
-            return
+    if client.terminal_type == 'unknown client':
+        client.send('waiting for terminfo\r\n');
+        return
     client.view.setSize(client.columns, client.rows)
     client.view.update()
 
     if client.cmd_ready :
         
         cmd = client.get_command()
-        
+        print len(cmd)
         if cmd == '\x11': # CTRL+Q
             clearScreen(client)
             reset(client)
             client.shouldQuit = True
-        elif cmd == '\x1bOP' or cmd == '\x1b[11~': #F1
+        elif cmd == client.terminfo.tigets('kf1'): #F1
             client.view.showHelp()
         else:
             client.view.handleInput(cmd)

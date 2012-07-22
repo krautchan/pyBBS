@@ -15,7 +15,7 @@ class Input(bbs.Drawable):
         self.position = (0,0)
         
     def _handleInput(self, command):
-        if command == '':
+        if command == '\t':
             self.parent.cycleFocus(self)
             return True
         else :
@@ -27,7 +27,10 @@ class Input(bbs.Drawable):
         cmd = cmd + '\x1b[40m'+ ' '*self.size[0]
         cmd = cmd*self.size[1]
         self.buffer = self.buffer + cmd
-        
+    
+    def _lostFocus(self):
+        bbs.Drawable._lostFocus(self)
+        pass
 
 class TextField(Input):
     
@@ -38,29 +41,31 @@ class TextField(Input):
         self.insertbufferpos = 0
         
     def repaint(self):
+        print 'repaint', self.hasFocus
         Input.repaint(self)
         cmd = ''
         cmd = cmd + '\x1b[%d;%dH' % (self.position[0], self.position[1])
         offset = 0
-        if len(self.insertbuffer) > self.size[0]:
+        if len(self.insertbuffer) >= self.size[0]:
             offset = self.insertbufferpos-self.size[0]/2
             if offset+self.size[0] > len(self.insertbuffer):
                 offset = len(self.insertbuffer) - self.size[0]
             elif offset < 0:
                 offset = 0
-            cmd = cmd + self.insertbuffer[offset:offset+self.size[0]]
+            cmd = cmd + self.insertbuffer[offset:offset+self.size[0]-1]
         else:
             cmd = cmd + self.insertbuffer
         if self.hasFocus:
             cmd = cmd + '\x1b[%d;%dH\x1b[33m' % (self.position[0], self.position[1]+self.insertbufferpos-offset)
             cmd = cmd + '\x1b[?25h'
         self.buffer = self.buffer + cmd
+        print self.buffer
         
     def _handleInput(self, command):
         if Input._handleInput(self, command):
             return True
         else:
-            command = command.strip()
+            #command = command.strip()
             if command in ('\x1b[A', '\x1b[B', '\x1b[C', '\x1b[D'):
                 if command[2] == 'A':
                     self.insertbufferpos = len(self.insertbuffer)
@@ -71,6 +76,8 @@ class TextField(Input):
                 elif command[2] == 'D':
                     if self.insertbufferpos > 0 :self.insertbufferpos -= 1
             elif len(command) > 0 and command[0] != '\x1b' and command[0] != '\0' :
+                command = command.replace('\r',' ')
+                command = command.replace('\n',' ')
                 self.insertbuffer = self.insertbuffer[:self.insertbufferpos] + command + self.insertbuffer[self.insertbufferpos:]
                 self.insertbufferpos = self.insertbufferpos + len(command)
             self.paint()

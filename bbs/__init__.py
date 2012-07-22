@@ -39,7 +39,7 @@ class Drawable(object):
     def cycleFocus(self, child):
         index = self.children.index(child)
         self.children[index].hasFocus = False
-        self.children[index].paint()
+        self.children[index]._lostFocus()
         index += 1
         if index >= len(self.children):
             index = 0
@@ -112,3 +112,6 @@ class Drawable(object):
         if input == '\x1b':
             self.close()
             return True
+    
+    def _lostFocus(self):
+        self.paint()

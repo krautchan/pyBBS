@@ -118,19 +118,34 @@ class EmptyPage(View):
         c = bbs.widgets.TextField(self.client, self)
         c.position = (30,20)
         self.addChild(c)
+        c = bbs.widgets.TextField(self.client, self)
+        c.position = (31,20)
+        self.addChild(c)
         
     def repaint(self):
         View.repaint(self)
+        self.drawColors()
         self.drawMessage()
         self.client.lineMode = False
         
+    def drawColors(self):
+        mc = self.client.terminfo.tigeti('colors')
+        ox = oy = 2
+        cmd = ''
+        c = 0
+        for x in range(0,mc/8):
+            for y in range(0,8):
+                cmd = cmd +'\x1b[%d;%df' % (ox+x, oy+y) + self.client.terminfo.tigets('setb', c) + ' '
+                c += 1
+        self.buffer += cmd
+        
     def drawMessage(self):
-        msg = 'Hier ist nichts :( "quit" um Verbindung zu beenden'
+        msg = 'Hier ist nichts :( "strg+q" um Verbindung zu beenden'
         pad = pad = (self.size[0]-len(msg))/2;
         cmd = '\x1b[%d;%df' % (self.size[1]/2, pad) + msg 
         self.buffer = self.buffer + cmd
         
     def _handleInput(self, command):
-        if command == '\x1b[24~': #F12
+        if command == self.client.terminfo.tigets('key_f12'):
             self.client.view = InputTest(self.client)
             self.client.view.paint()

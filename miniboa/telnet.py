@@ -342,7 +342,7 @@ class TelnetClient(object):
                 self.cmd_ready = True
                 self.recv_buffer = self.recv_buffer[mark+1:]
         else:
-            cmd = self.recv_buffer.strip()
+            cmd = self.recv_buffer
             self.command_list.append(cmd)
             self.cmd_ready = True
             self.recv_buffer = self.recv_buffer[len(self.recv_buffer):]
@@ -708,7 +708,11 @@ class TelnetClient(object):
 
             if bloc[0] == TTYPE and bloc[1] == IS:
                 self.terminal_type = bloc[2:]
-                print "Terminal type = '%s'" % self.terminal_type
+                #print "Terminal type = '%s'" % self.terminal_type
+                from terminfo import TermInfo
+                self.terminfo = TermInfo(self.terminal_type)
+                self.send(self.terminfo.initTerm())
+                self.send(self.terminfo.tigets('rmam'))
 
             if bloc[0] == NAWS:
                 if len(bloc) != 5:
