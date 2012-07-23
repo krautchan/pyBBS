@@ -59,7 +59,6 @@ class TextField(Input):
             cmd = cmd + '\x1b[%d;%dH\x1b[33m' % (self.position[0], self.position[1]+self.insertbufferpos-offset)
             cmd = cmd + '\x1b[?25h'
         self.buffer = self.buffer + cmd
-        print self.buffer
         
     def _handleInput(self, command):
         if Input._handleInput(self, command):

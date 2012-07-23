@@ -52,22 +52,24 @@ def updateClient(client):
     client.view.update()
 
     if client.cmd_ready :
-        
-        cmd = client.get_command()
-        print len(cmd)
-        if cmd == '\x11': # CTRL+Q
-            clearScreen(client)
-            reset(client)
+        try:
+            cmd = client.get_command()
+            print len(cmd)
+            if cmd == '\x11': # CTRL+Q
+                clearScreen(client)
+                reset(client)
+                client.shouldQuit = True
+            elif cmd == client.terminfo.tigets('kf1'): #F1
+                client.view.showHelp()
+            elif cmd == client.terminfo.tigets('kf2'): #F1
+                client.view = view.Streetview(client)
+                client.view.setSize(client.columns, client.rows)
+                client.view.paint()
+                client.view.update()
+            else:
+                client.view.handleInput(cmd)
+        except:
             client.shouldQuit = True
-        elif cmd == client.terminfo.tigets('kf1'): #F1
-            client.view.showHelp()
-        elif cmd == client.terminfo.tigets('kf2'): #F1
-            client.view = view.Streetview(client)
-            client.view.setSize(client.columns, client.rows)
-            client.view.paint()
-            client.view.update()
-        else:
-            client.view.handleInput(cmd)
 
 def my_on_disconnect(client):
     CLIENTS.remove(client)

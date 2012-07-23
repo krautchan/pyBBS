@@ -7,8 +7,10 @@ import bbs
 import bbs.widgets
 import aalib
 import Image
+import streetview
 from datetime import datetime
 import time
+import math
 class View(bbs.Drawable):
 
     buffer = ''
@@ -116,26 +118,85 @@ class Streetview(View):
         self.lastdraw = 0
         self.framepointer = 0
         self.maxframes = 1000
+        self.lib = streetview.Streetview()
+        self.help['0-9'] = 'In Richtung 0-9 bewegen'
+    
+    def drawWindrose(self):
+        width = 20
+        height = 10
+        yaw = float(self.lib.getYaw())
+        #yaw = 0
+        cmd = '\x1b[H'
+        cmd += '\x1b(0'
+        cmd += 'l' + 'q'*(width)+ 'k\n'
+        cmd += ('x' + ' '*(width)+ 'x\n')*height
+        cmd += 'm' + 'q'*(width)+ 'j'
+        cmd += '\x1b(A'
+        
+        
+        # draw directions
+        pos = self.yawToPos(0-yaw, width, height) #north
+        cmd += self.client.terminfo.tigets('cup', pos[1]+2,pos[0]+2)
+        cmd += 'N'
+        pos = self.yawToPos(90-yaw, width, height) #east
+        cmd += self.client.terminfo.tigets('cup', pos[1]+2,pos[0]+2)
+        cmd += 'E'
+        pos = self.yawToPos(180-yaw, width, height) #east
+        cmd += self.client.terminfo.tigets('cup', pos[1]+2,pos[0]+2)
+        cmd += 'S'
+        pos = self.yawToPos(270-yaw, width, height) #east
+        cmd += self.client.terminfo.tigets('cup', pos[1]+2,pos[0]+2)
+        cmd += 'W'
+        c = 0
+        for i in self.lib.getLinks():
+            pos = self.yawToPos(float(i['yawDeg'])-yaw, width, height)
+            cmd += self.client.terminfo.tigets('cup', pos[1]+2,pos[0]+2)
+            cmd += "%d" % (c+1)
+            c += 1
+        return cmd
+    
+    def yawToPos(self, yaw, width, height):
+        yaw = yaw -90
+        b = math.pi/180
+        x = math.cos(yaw * b)*(width/2)
+        y = math.sin(yaw * b)*(height/2)
+        return (int(x+width/2), int(y+height/2))
     
     def repaint(self):
+        View.repaint(self)
         self.buffer = '\x1b[H'
+        self.buffer += self.client.terminfo.tigets('civis')
         self.buffer += self.client.terminfo.tigets('setb', 0)
         self.buffer += self.client.terminfo.tigets('setf', 7)
         screen = aalib.AnsiScreen(width=self.size[0], height=self.size[1])
-        image = Image.open('/var/lib/streetview/out/%05d.jpg'%self.framepointer).convert('L').resize(screen.virtual_size)
+        image = self.lib.makeViewport().convert('L').resize(screen.virtual_size)
         screen.put_image((0, 0), image)
         self.buffer += screen.render()
-        if self.framepointer >= self.maxframes:
-            self.framepointer = 0
-        else:
-            self.framepointer+=1
+        links = self.lib.getLinks()
+        self.buffer += self.client.terminfo.tigets('cup', self.size[1]-(len(links)+1),0)
+        maxlen = 0
+        for i in links:
+            if len(i['description']) > maxlen:
+                maxlen = len(i['description'])
+        maxlen += 9
+        self.buffer += '\x1b(0'
+        self.buffer += 'l' + 'q'*(maxlen)+ 'k\n'
+        self.buffer += ('x' + ' '*(maxlen)+ 'x\n')*len(links)
+        self.buffer += 'm' + 'q'*(maxlen)+ 'j' 
+        self.buffer += '\x1b(A'
         
-    def update(self):
-        t = time.time()
-        if t - self.lastdraw > .20:
-            self.paint()
-            self.lastdraw = time.time()
-        
+        c = 0;
+        for i in links:
+            self.buffer += self.client.terminfo.tigets('cup', self.size[1]-(len(links)-c),0)
+            self.buffer += self.client.terminfo.tigets('cuf1')+"%d " % (c+1) + i['yawDeg'].ljust(7) +i['description'].center(maxlen-9)
+            c += 1
+        self.buffer += self.drawWindrose()
+    
+    def _handleInput(self, command):
+        if command in '0123456789':
+            if int(command)-1 < len(self.lib.getLinks()):
+                self.lib.setPanoId(self.lib.getLinks()[int(command)-1]['panoId'])
+                self.paint()
 
 class EmptyPage(View):
     

@@ -30,7 +30,7 @@ class Drawable(object):
         self.buffer = ''
         self.title = 'drawable'
         
-        self.help = {'F1': 'Hilfe', 'ESC': 'schliesst Fenster','STRG+Q': 'beenden'}
+        self.help = {'F1': 'Hilfe','F2': 'Streetview', 'ESC': 'schliesst Fenster','STRG+Q': 'beenden'}
         
         if parent == None:
             self.hasFocus = True

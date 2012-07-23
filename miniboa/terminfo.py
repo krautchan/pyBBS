@@ -603,8 +603,8 @@ class TermInfo(object):
                     stack.append(self._logicalOp(str[sp+1], stack.pop(), stack.pop()))
                     sp += 2
                 if str[sp+1] == 'i':
-                    args[0] += 1
-                    args[1] += 1
+                    #args[0] += 1
+                    #args[1] += 1
                     sp += 2
                 m = re.match(self.numre,str[sp:])
                 if m:
