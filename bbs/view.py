@@ -5,8 +5,10 @@ Created on Jul 15, 2012
 '''
 import bbs
 import bbs.widgets
-
-
+import aalib
+import Image
+from datetime import datetime
+import time
 class View(bbs.Drawable):
 
     buffer = ''
@@ -106,6 +108,34 @@ class InputTest(View):
     
     def _handleInput(self, Input):
         pass
+
+class Streetview(View):
+    
+    def __init__(self, client):
+        View.__init__(self, client)
+        self.lastdraw = 0
+        self.framepointer = 0
+        self.maxframes = 1000
+    
+    def repaint(self):
+        self.buffer = '\x1b[H'
+        self.buffer += self.client.terminfo.tigets('setb', 0)
+        self.buffer += self.client.terminfo.tigets('setf', 7)
+        screen = aalib.AnsiScreen(width=self.size[0], height=self.size[1])
+        image = Image.open('/var/lib/streetview/out/%05d.jpg'%self.framepointer).convert('L').resize(screen.virtual_size)
+        screen.put_image((0, 0), image)
+        self.buffer += screen.render()
+        if self.framepointer >= self.maxframes:
+            self.framepointer = 0
+        else:
+            self.framepointer+=1
+        
+    def update(self):
+        t = time.time()
+        if t - self.lastdraw > .20:
+            self.paint()
+            self.lastdraw = time.time()
+        
 
 class EmptyPage(View):
     

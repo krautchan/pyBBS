@@ -61,6 +61,11 @@ def updateClient(client):
             client.shouldQuit = True
         elif cmd == client.terminfo.tigets('kf1'): #F1
             client.view.showHelp()
+        elif cmd == client.terminfo.tigets('kf2'): #F1
+            client.view = view.Streetview(client)
+            client.view.setSize(client.columns, client.rows)
+            client.view.paint()
+            client.view.update()
         else:
             client.view.handleInput(cmd)
 
