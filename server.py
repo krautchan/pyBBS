@@ -4,7 +4,7 @@ Created on Jul 15, 2012
 @author: teddydestodes
 '''
 from bbs import view, window
-import atexit
+import atexit, sys
 from miniboa import TelnetServer
 CLIENTS = []
 conncount = 0
@@ -69,6 +69,9 @@ def updateClient(client):
             else:
                 client.view.handleInput(cmd)
         except:
+            clearScreen(client)
+            reset(client)
+            client.send(sys.exc_info()[1])
             client.shouldQuit = True
 
 def my_on_disconnect(client):
