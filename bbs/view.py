@@ -191,7 +191,7 @@ class Streetview(View):
             self.buffer += self.client.terminfo.tigets('cuf1')+"%d " % (c+1) + i['yawDeg'].ljust(7) +i['description'].center(maxlen-9)
             c += 1
         self.buffer += self.drawWindrose()
-        self.buffer = self.buffer.encode('utf8')
+        self.buffer = self.buffer.decode('utf8')
     
     def _handleInput(self, command):
         if command in '0123456789':
