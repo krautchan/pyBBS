@@ -3,11 +3,29 @@ Created on Jul 15, 2012
 
 @author: teddydestodes
 '''
-from bbs import view, window
-import atexit, sys
+import atexit
+import os
+import chan.sql
 from miniboa import TelnetServer
+from ConfigParser import SafeConfigParser
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 CLIENTS = []
 conncount = 0
+current_dir = os.path.dirname(os.path.abspath(__file__))
+config = SafeConfigParser()
+config.read(os.path.join(current_dir,'etc','config.cfg'))
+
+engine = create_engine("%s://%s:%s@%s/%s?charset=utf8" % (config.get('database', 'engine'),
+                                                          config.get('database', 'username'),
+                                                          config.get('database', 'password'),
+                                                          config.get('database', 'host'),
+                                                          config.get('database', 'database')))
+Session = sessionmaker(bind=engine)
+session = Session()
+
+chan.sql.Base.metadata.create_all(engine)
+
 def on_exit():
         print "shutting down"
         for client in CLIENTS:
@@ -22,57 +40,55 @@ def reset(client):
 
 def my_on_connect(client):
     global conncount
-
-    client.request_terminal_type()
-
     #client.request_wont_line_mode()
     client.request_do_sga()
     client.request_will_sga()
     client.request_will_echo()
+    client.request_dont_echo()
     client.request_naws()
+    client.request_terminal_type()
     client.shouldQuit = False
     client.startup = True
-    client.lineMode = True
+    client.lineMode = False
+    client.session = session
     CLIENTS.append(client)
     conncount = conncount + 1
-    client.view = view.Title(client)
-    client.view.setClientCount(len(CLIENTS))
-    client.view.setConnectionCount(conncount)
-    #client.view.paint()
-    
     
 def updateClient(client):
     if client.shouldQuit:
         client.deactivate()
         return
+
     if client.terminal_type == 'unknown client':
         client.send('waiting for terminfo\r\n');
         return
-    client.view.setSize(client.columns, client.rows)
-    client.view.update()
-
-    if client.cmd_ready :
+    
+    if client.startup:
+        client.startup = False
+        import chan
+        client.view = chan.Welcome(client)
+    
+    if client.view.size != [client.columns, client.rows]:
+        client.view.size = [client.columns, client.rows]
+        client.view.repaint()
+    
+    if client.cmd_ready:
         try:
             cmd = client.get_command()
-            print len(cmd)
-            if cmd == '\x11': # CTRL+Q
+            if cmd == client.terminfo.tigets('kf12'):
+                client.shouldQuit = True
                 clearScreen(client)
                 reset(client)
-                client.shouldQuit = True
-            elif cmd == client.terminfo.tigets('kf1'): #F1
-                client.view.showHelp()
-            elif cmd == client.terminfo.tigets('kf2'): #F1
-                client.view = view.Streetview(client)
-                client.view.setSize(client.columns, client.rows)
-                client.view.paint()
-                client.view.update()
-            else:
-                client.view.handleInput(cmd)
+                return
+            client.view.onInput(cmd)
         except:
             clearScreen(client)
             reset(client)
-            client.send(sys.exc_info()[1])
+            client.send('FEHLERFEHLERFEHLERFEHLERFEHLERFEHLERFEHLERFEHLERFEHLERFEHLERFEHLERFEHLER!!!!')
+            import traceback
+            traceback.print_exc()
             client.shouldQuit = True
+    client.view.update()
 
 def my_on_disconnect(client):
     CLIENTS.remove(client)

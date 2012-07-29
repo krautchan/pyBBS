@@ -18,7 +18,7 @@ Manage one Telnet client connected via a TCP/IP socket.
 
 import socket
 import time
-
+from termlib.terminfo import TermInfo
 from miniboa.error import BogConnectionLost
 from miniboa.xterm import colorize
 from miniboa.xterm import word_wrap
@@ -127,6 +127,7 @@ class TelnetClient(object):
         self.address = addr_tup[0]  # The client's remote TCP/IP address
         self.port = addr_tup[1]     # The client's remote port
         self.terminal_type = 'unknown client' # set via request_terminal_type()
+        self.terminal_types  =[]
         self.use_ansi = True
         self.size_known = False
         self.columns = 80
@@ -141,7 +142,7 @@ class TelnetClient(object):
         self.connect_time = time.time()
         self.last_input_time = time.time()
         self.lineMode = True
-        
+        self.force_silence = True
         ## State variables for interpreting incoming telnet commands
         self.telnet_got_iac = False # Are we inside an IAC sequence?
         self.telnet_got_cmd = None  # Did we get a telnet command?
@@ -242,7 +243,14 @@ class TelnetClient(object):
     def request_wont_line_mode(self):
         self._iac_wont(LINEMO)
         self._note_reply_pending(LINEMO, True)
-
+        
+    def request_dont_echo(self):
+        """
+        Tell the DE that their terminal would like to echo their text.  See RFC 857.
+        """
+        self._iac_dont(ECHO)
+        self._note_reply_pending(ECHO, True)
+        
     def request_will_echo(self):
         """
         Tell the DE that we would like to echo their text.  See RFC 857.
@@ -334,7 +342,6 @@ class TelnetClient(object):
         if self.lineMode == True:
             while True:
                 mark = self.recv_buffer.find('\r')
-                print mark
                 if mark == -1:
                     break
                 cmd = self.recv_buffer[:mark].strip()
@@ -354,7 +361,7 @@ class TelnetClient(object):
         """
         ## Filter out non-printing characters
         #if (byte >= ' ' and byte <= '~') or byte == '\n':
-        if self.telnet_echo:
+        if self.telnet_echo and not self.force_silence:
             self._echo_byte(byte)
         self.recv_buffer += byte
 
@@ -520,7 +527,6 @@ class TelnetClient(object):
                     self._note_local_option(LINEMO, True)
                     self._iac_will(LINEMO)
             elif option == ECHO:
-                print 'do echo'
                 if self._check_reply_pending(ECHO):
                     self._note_reply_pending(ECHO, False)
                     self._note_local_option(ECHO, True)
@@ -576,7 +582,6 @@ class TelnetClient(object):
                     self._iac_wont(LINEMO)
                     
             elif option == ECHO:
-                print 'dont echo'
                 if self._check_reply_pending(ECHO):
                     self._note_reply_pending(ECHO, False)
                     self._note_local_option(ECHO, True)
@@ -635,7 +640,6 @@ class TelnetClient(object):
                     ## Client should respond with SB
 
             elif option == SGA:
-                print 'will sga'
                 if self._check_reply_pending(SGA):
                     self._note_reply_pending(SGA, False)
                     self._note_remote_option(SGA, True)
@@ -671,9 +675,8 @@ class TelnetClient(object):
                     self._note_remote_option(ECHO, False)
                     self._iac_dont(ECHO)
             elif option == LINEMO:
-                print ':D'
+                pass
             elif option == SGA:
-                print 'wont sga'
                 if self._check_reply_pending(SGA):
                     self._note_reply_pending(SGA, False)
                     self._note_remote_option(SGA, False)
@@ -707,12 +710,20 @@ class TelnetClient(object):
         if len(bloc) > 2:
 
             if bloc[0] == TTYPE and bloc[1] == IS:
-                self.terminal_type = bloc[2:]
-                #print "Terminal type = '%s'" % self.terminal_type
-                from terminfo import TermInfo
-                self.terminfo = TermInfo(self.terminal_type)
-                self.send(self.terminfo.initTerm())
-                self.send(self.terminfo.tigets('rmam'))
+                try:
+                    self.terminal_types.index(bloc[2:])
+                    self.terminal_type = bloc[2:]
+                    print "Terminal type = '%s'" % self.terminal_type
+                    print self.terminal_types
+                    self.terminfo = TermInfo(self.terminal_type)
+                    self.send(self.terminfo.initTerm())
+                    self.send(self.terminfo.tigets('rmam'))
+                except ValueError:
+                    self.terminal_types.append(bloc[2:])
+                    self.send('%c%c%c%c%c%c' % (IAC, SB, TTYPE, SEND, IAC, SE))
+                
+                
+                
 
             if bloc[0] == NAWS:
                 if len(bloc) != 5:

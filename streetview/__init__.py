@@ -103,27 +103,69 @@ class Streetview(object):
                 if not os.path.exists(outpath):
                     urlretrieve(url, outpath)
                     
-    def makeViewport(self,yaw=0):
+    def makeViewport(self,yaw=0, pitch=0):
         camcenter = (1664,832,3328,832)
         f = open(os.path.join(self.datadir,self.panoid,'data.json'), 'r')
         data = json.load(f)
         f.close()
-        yawoffset = fabs(float(data['Projection']['pano_yaw_deg']) - yaw)
-        yawoffsetb = fabs(float(data['Projection']['pano_yaw_deg']) - yaw)+180
-        while yawoffsetb > 360.0:
-            yawoffsetb -= 360
-        if yawoffset < yawoffsetb:
-            offset = (camcenter[0]-self.width/2,camcenter[1]-self.height/2)
-            print 'f',yawoffset,yawoffsetb
-        else:
-            offset = (camcenter[2]-self.width/2,camcenter[3]-self.height/2)
-            print 'b',yawoffset,yawoffsetb
-    
+        #print data
+        height = int(data['Data']['image_height'])/(self.zoomlevel+1)
+        width = int(data['Data']['image_width'])/(self.zoomlevel+1)
+        tile_width = int(data['Data']['tile_width'])
+        tile_height = int(data['Data']['tile_height'])
+        yawoffset = float(data['Projection']['pano_yaw_deg'])
+        yaw = yawoffset + yaw
+        import math
+        b = math.pi/180
+        
+        s = width/360
+        xcenter = s*yaw
+        while xcenter < 0:
+            xcenter += width
+        while xcenter > width:
+            xcenter -= width
+        pitch += 90
+        s = height/180
+        ycenter = s*pitch
+        while ycenter < 0:
+            ycenter += height
+        while ycenter > height:
+            ycenter -= height
+        xstart = (xcenter-self.width/2)
+        xend   = (xcenter+self.width/2)+tile_width
+        ystart = (ycenter-self.height/2)
+        yend   = (ycenter+self.height/2)
+        
+        xtiles = int(math.ceil(width/tile_width))
+        ytiles = int(math.ceil(height/tile_height))
+        offset = (int(xcenter-self.width/2),int(ycenter-self.height/2))
         view = Image.new('RGBA', (self.width,self.height))
         for x in range(offset[0] / 512,((offset[0]+self.width)/512)+1):
+            if x < 0:
+                xoff = (x*512)-offset[0]+256
+                x = xtiles
+            else:
+                xoff = (x*512)-offset[0]
             for y in range(offset[1] / 512,((offset[1]+self.height)/512)+1):
+                yoff = (y*512)-offset[1]
                 filename = os.path.join(self.datadir,self.panoid,'%02d-%02d.jpg' % (x,y))
                 img = Image.open(filename)
-                toffset = ((x*512)-offset[0],(y*512)-offset[1])
+                toffset = (xoff,yoff)
                 view.paste(img,toffset)
+            if x >= xtiles:
+                x = x-xtiles
+                xoff = (x*512)-offset[0]+256
+                for y in range(offset[1] / 512,((offset[1]+self.height)/512)+1):
+                    yoff = (y*512)-offset[1]
+                    filename = os.path.join(self.datadir,self.panoid,'%02d-%02d.jpg' % (x,y))
+                    img = Image.open(filename)
+                    toffset = (xoff,yoff)
+                    view.paste(img,toffset)
+        #self.drawRect(view, (int(xcenter),int(ycenter)))
         return view
+    
+    def drawRect(self, image, pos):
+        for x in range(-10,10):
+            for y in range(-10,10):
+                if pos[0]+x>0 and pos[1]+y>0 and pos[0]+x < image.size[0] and pos[1]+y < image.size[1]:
+                    image.putpixel((pos[0]+x, pos[1]+y),(255,0,0,0))
