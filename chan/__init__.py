@@ -20,6 +20,7 @@ class Nyan(Screen):
         if self.fc >= len(self.frames):
             self.fc = 0
         self.image.repaint()
+
 class Welcome(Screen):
     def __init__(self, client):
         Screen.__init__(self, client, 'Welcome')
@@ -133,38 +134,66 @@ class ThreadPane(Panel):
         Panel.__init__(self)
         self.thread = thread
         self.text = None
+        self.username = None
+        self.title = None
+        self.postnum = None
         self.posts = []
         self.setBackground(Canvas.COLOR_BLUE)
         
     def update(self):
+        dirty = False
         if not self.text:
             self.text = Label(self.thread.text)
             self.text.wrap = True
-            print self.parent.size[0]-2
-            self.text.maxWidth = self.parent.size[0]-2
-            self.text.pack()
-            self.text.size[0] = self.text.maxWidth
             self.text.position = [0,1]
             self.text.setBackground(Canvas.COLOR_BLUE)
             self.addChild(self.text)
+            dirty = True
+        
+        if self.size[0] != self.parent.size[0]-3:
+            self.size[0] = self.parent.size[0]-3
+            dirty = True
+        
+        if self.text.maxWidth != self.size[0]:
+            self.text.maxWidth = self.size[0]
+            self.text.pack()
+            self.text.size[0] = self.text.maxWidth
+            dirty = True
+        
+        if not self.postnum:
+            self.postnum = Button('#%d'%self.thread.postid)
+            self.postnum.size = [8,1]
+            self.postnum.position = [0, 0]
+            self.postnum.setBackground(Canvas.COLOR_BLUE)
+            self.addChild(self.postnum)
+
+        if not self.username:
             self.username = Label(self.thread.username)
             self.username.maxWidth = 20
             self.username.pack()
-            self.username.position = [0,0]
+            self.username.position = [self.postnum.size[0]+1,0]
+            self.username.setBackground(Canvas.COLOR_BLUE)
+            self.addChild(self.username)
+        
+        if not self.title:
             self.title = Label(self.thread.title)
             self.title.maxWidth = 20
             self.title.pack()
-            self.title.position = [self.username.size[0]+1, 0]
-            self.post = Label('# %d'%self.thread.postid)
-            self.post.maxWidth = 6
-            self.post.pack()
-            self.post.position = [self.username.size[0]+self.title.size[0]+2, 0]
-            self.addChild(self.username)
+            self.title.position = [self.postnum.size[0]+self.username.size[0]+2, 0]
+            self.title.setBackground(Canvas.COLOR_BLUE)
+            
             self.addChild(self.title)
-            self.addChild(self.post)
-            self.pack()
-        return False
+        
+        self.pack()
+        self.size[1] = self.contentSize.max[1]
+        return dirty
 
+class Thread(Screen):
+    
+    def __init__(self, client, post):
+        Screen.__init__(self, client, 'bbs')
+        self.size = [client.columns, client.rows]
+        self.Thread = self.loadThread(post)
 class Board(Screen):
     
     def __init__(self, client, board):
@@ -223,11 +252,12 @@ class Board(Screen):
         self.sendbutton.size = [10,1]
         self.sendbutton.position = [5,14]
         self.sendbutton.onPress = self.newThread
+        self.sendbutton.setBackground(Canvas.COLOR_BLUE)
         self.newthreadpane.addChild(self.sendbutton)
         self.scrollpane = ScrollPane()
         self.scrollpane.size = [self.size[0],0]
         self.scrollpane.position = [0,18]
-        self.scrollpane.setBackground(Canvas.COLOR_CYAN)
+        self.scrollpane.setBackground(Canvas.COLOR_BLUE)
         self.addChild(self.scrollpane)
         self.setBackground(Canvas.COLOR_BLUE)
         self.repaint()
@@ -248,7 +278,8 @@ class Board(Screen):
                 if self.threads[threadid].update():
                     self.dirty = True
                 self.threads[threadid].position = (2,x)
-                x += self.threads[threadid].size[1]+2
+                x += self.threads[threadid].size[1]+1
+            
             if self.dirty:
                 print self.dirty
                 self.scrollpane.pack()
@@ -263,7 +294,6 @@ class Board(Screen):
                 self.scrollpane.addChild(tp)
                 self.threads[thread.postid] = tp
                 self.dirty = True
-                print 'added'
     
     def newThread(self):
         self.board.addThread(self.client.session, self.name.getValue(), self.topic.getValue(), self.text.getValue())
@@ -289,4 +319,6 @@ class Board(Screen):
             if not self.newthreadpane.visible:
                 self.newthreadpane.removeFocus()
             self.repaint()
+        if command == self.canvas.terminfo.tigets('kf2'):
+            self.name.giveFocus()
         Screen.onInput(self, command)

@@ -105,10 +105,41 @@ class Drawable(object):
                     child.handleCommand(command)
     
     def removeFocus(self):
-        self.hasFocus = False
+        if self.hasFocus:
+            self.hasFocus = False
+            self.onFocus()
         for child in self.children:
             child.removeFocus()
         self.childWithFocus = None
+
+    def giveFocus(self):
+        print 'p'
+        if not self.isVisible():
+            return
+        self.getRoot().removeFocus()
+        self.hasFocus = True
+        da = self
+        while da:
+            if not da.parent:
+                break;
+            print da
+            da.parent.childWithFocus = da
+            da = da.parent
+
+    def isVisible(self):
+        if self.parent:
+            if self.parent.visible:
+                return self.parent.isVisible()
+            else:
+                return False
+        else:
+            return self.visible
+
+    def getRoot(self):
+        if self.parent:
+            return self.parent.getRoot()
+        else:
+            return self
 
     def cycleFocus(self):
         if not self.visible:
@@ -125,10 +156,12 @@ class Drawable(object):
         if len(self.children) > 0:
             if self.childWithFocus == None:
                 self.childWithFocus = self.children[0]
-            if not self.childWithFocus.cycleFocus():
+            while not self.childWithFocus.cycleFocus():
                 ci = self.children.index(self.childWithFocus)
+                
                 if ci + 1 >= len(self.children):
                     self.childWithFocus = None
+                    return
                 else:
                     self.childWithFocus = self.children[ci+1]
         return self.childWithFocus != None
